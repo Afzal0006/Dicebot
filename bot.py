@@ -6,6 +6,7 @@ import random
 # ===== Config =====
 BOT_TOKEN = "8357734886:AAHQi1zmj9q8B__7J-2dyYUWVTQrMRr65Dc"
 MONGO_URI = "mongodb+srv://afzal99550:afzal99550@cluster0.aqmbh9q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+OWNER_ID = 7363327309  # <-- Apna Telegram user ID yahan daalo
 
 client = MongoClient(MONGO_URI)
 db = client["dicebot"]
@@ -15,7 +16,9 @@ users = db["users"]
 def get_user(user_id):
     user = users.find_one({"user_id": user_id})
     if not user:
-        users.insert_one({"user_id": user_id, "points": 0})
+        # Owner ko huge starting points, baki ko 0
+        starting_points = 100_000_000 if user_id == OWNER_ID else 0
+        users.insert_one({"user_id": user_id, "points": starting_points})
         user = users.find_one({"user_id": user_id})
     return user
 
