@@ -1,12 +1,11 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackQueryHandler
 from pymongo import MongoClient
-import random
 
 # ===== Config =====
 BOT_TOKEN = "8357734886:AAHQi1zmj9q8B__7J-2dyYUWVTQrMRr65Dc"
 MONGO_URI = "mongodb+srv://afzal99550:afzal99550@cluster0.aqmbh9q.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-OWNER_ID = 7363327309  # <-- Apna Telegram user ID yahan daalo
+OWNER_ID = 7363327309  # <-- Tumhara Telegram user ID
 
 client = MongoClient(MONGO_URI)
 db = client["dicebot"]
@@ -16,15 +15,18 @@ users = db["users"]
 def get_user(user_id):
     user = users.find_one({"user_id": user_id})
     if not user:
-        # Owner ko huge starting points, baki ko 0
-        starting_points = 100_000_000 if user_id == OWNER_ID else 0
-        users.insert_one({"user_id": user_id, "points": starting_points})
+        users.insert_one({"user_id": user_id, "points": 0})
         user = users.find_one({"user_id": user_id})
     return user
 
 # /Balance command
 async def balance(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    
+    if user_id == OWNER_ID:
+        await update.message.reply_text("👑 You are the Owner!\n💰 Balance: ♾️ Unlimited coins")
+        return
+    
     user = get_user(user_id)
     await update.message.reply_text(f"💰 Your balance: {user['points']} points")
 
@@ -39,19 +41,10 @@ async def dice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     guess = int(context.args[0])
     if guess < 1 or guess > 6:
-        # Show inline bet buttons
-        keyboard = [
-            [InlineKeyboardButton("10 ✅", callback_data=f"{user_id}|10|{guess}"),
-             InlineKeyboardButton("20 ✅", callback_data=f"{user_id}|20|{guess}"),
-             InlineKeyboardButton("30 ✅", callback_data=f"{user_id}|30|{guess}")],
-            [InlineKeyboardButton("40 ✅", callback_data=f"{user_id}|40|{guess}"),
-             InlineKeyboardButton("50 ✅", callback_data=f"{user_id}|50|{guess}")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await update.message.reply_text("Choose your bet:", reply_markup=reply_markup)
+        await update.message.reply_text("❌ Please choose a number between 1 and 6")
         return
 
-    # If guess valid 1-6, allow inline bet selection
+    # Inline bet buttons
     keyboard = [
         [InlineKeyboardButton("10 ✅", callback_data=f"{user_id}|10|{guess}"),
          InlineKeyboardButton("20 ✅", callback_data=f"{user_id}|20|{guess}"),
@@ -76,27 +69,33 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("❌ This button is not for you!")
         return
 
-    # Check if user has enough points
-    if user['points'] < bet_amount:
-        await query.edit_message_text("❌ You don't have enough points for this bet.")
-        return
+    # ✅ OWNER SPECIAL RULE: Unlimited balance (skip deduction)
+    if user_id != OWNER_ID:
+        # Normal user → check balance
+        if user['points'] < bet_amount:
+            await query.edit_message_text("❌ You don't have enough points for this bet.")
+            return
 
-    # Deduct bet points
-    users.update_one({"user_id": user_id}, {"$inc": {"points": -bet_amount}})
+        # Deduct bet points
+        users.update_one({"user_id": user_id}, {"$inc": {"points": -bet_amount}})
 
     # Roll dice animation
     dice_message = await query.message.reply_dice(emoji="🎲")
     rolled_number = dice_message.dice.value
 
-    # Check win or lose
     if guess == rolled_number:
-        # Win → add double bet
-        users.update_one({"user_id": user_id}, {"$inc": {"points": bet_amount * 2}})
-        new_balance = users.find_one({"user_id": user_id})['points']
-        result_text = f"🎉 You guessed {guess} and rolled {rolled_number}! You win!\n💰 New balance: {new_balance} points"
+        if user_id == OWNER_ID:
+            result_text = f"👑 You guessed {guess} and rolled {rolled_number}!\n🎉 You always win with unlimited coins!"
+        else:
+            users.update_one({"user_id": user_id}, {"$inc": {"points": bet_amount * 2}})
+            new_balance = users.find_one({"user_id": user_id})['points']
+            result_text = f"🎉 You guessed {guess} and rolled {rolled_number}! You win!\n💰 New balance: {new_balance} points"
     else:
-        new_balance = users.find_one({"user_id": user_id})['points']
-        result_text = f"❌ You guessed {guess} but rolled {rolled_number}. You lose!\n💰 New balance: {new_balance} points"
+        if user_id == OWNER_ID:
+            result_text = f"👑 You guessed {guess} but rolled {rolled_number}.\n❌ You lose nothing because you have unlimited coins!"
+        else:
+            new_balance = users.find_one({"user_id": user_id})['points']
+            result_text = f"❌ You guessed {guess} but rolled {rolled_number}. You lose!\n💰 New balance: {new_balance} points"
 
     await query.edit_message_text(result_text)
 
