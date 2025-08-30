@@ -42,11 +42,11 @@ async def dice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     keyboard = [
-        [InlineKeyboardButton("10 ✅", callback_data=f"{user_id}|10|{guess}"),
-         InlineKeyboardButton("20 ✅", callback_data=f"{user_id}|20|{guess}"),
-         InlineKeyboardButton("30 ✅", callback_data=f"{user_id}|30|{guess}")],
-        [InlineKeyboardButton("40 ✅", callback_data=f"{user_id}|40|{guess}"),
-         InlineKeyboardButton("50 ✅", callback_data=f"{user_id}|50|{guess}")]
+        [InlineKeyboardButton("Play for 10 points", callback_data=f"{user_id}|10|{guess}"),
+         InlineKeyboardButton("Play for 20 points", callback_data=f"{user_id}|20|{guess}"),
+         InlineKeyboardButton("Play for 30 points", callback_data=f"{user_id}|30|{guess}")],
+        [InlineKeyboardButton("play for 40 points", callback_data=f"{user_id}|40|{guess}"),
+         InlineKeyboardButton("play for 50 points", callback_data=f"{user_id}|50|{guess}")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Choose your bet:", reply_markup=reply_markup)
